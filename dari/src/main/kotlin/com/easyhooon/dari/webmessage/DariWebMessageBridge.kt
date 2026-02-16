@@ -12,17 +12,13 @@ import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessagePayloadType
 import com.easyhooon.dari.MessageStatus
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 internal object DariWebMessageBridge {
 
-    private val webMessageCounter = AtomicLong(0)
     private val json = Json { ignoreUnknownKeys = true }
 
     fun isSupported(): Boolean {
@@ -41,65 +37,42 @@ internal object DariWebMessageBridge {
             config.jsObjectName,
             config.allowedOriginRules,
         ) { _, message, sourceOrigin, isMainFrame, replyProxy ->
-            val payloadType = when (message.type) {
-                WebMessageCompat.TYPE_ARRAY_BUFFER -> MessagePayloadType.ARRAY_BUFFER
-                else -> MessagePayloadType.STRING
+            if (message.type == WebMessageCompat.TYPE_ARRAY_BUFFER) {
+                // TODO: Support ARRAY_BUFFER with a dedicated binary correlation strategy.
+                return@addWebMessageListener
             }
 
-            val stringPayload = if (payloadType == MessagePayloadType.STRING) message.data else null
-            val arrayBufferPayload = if (payloadType == MessagePayloadType.ARRAY_BUFFER) {
-                message.arrayBuffer
-            } else {
-                null
-            }
-
-            val parsedEnvelope = if (payloadType == MessagePayloadType.STRING) {
-                parseEnvelope(stringPayload, config.channelName)
-            } else {
-                null
-            }
-            val requestId = parsedEnvelope?.requestId ?: createRequestId()
-            val handlerName = parsedEnvelope?.handlerName ?: config.channelName
-            val requestData = when (payloadType) {
-                MessagePayloadType.STRING -> parsedEnvelope?.requestData ?: stringPayload
-                MessagePayloadType.ARRAY_BUFFER -> {
-                    if (arrayBufferPayload == null) {
-                        "[ArrayBuffer]"
-                    } else {
-                        "[ArrayBuffer ${arrayBufferPayload.size} bytes, base64=${Base64.encodeToString(arrayBufferPayload, Base64.NO_WRAP)}]"
-                    }
-                }
-            }
+            val parsedEnvelope = parseEnvelope(message.data)
 
             val entry = MessageEntry(
-                requestId = requestId,
-                handlerName = handlerName,
+                requestId = parsedEnvelope.requestId,
+                handlerName = parsedEnvelope.handlerName,
                 direction = MessageDirection.WEB_TO_APP,
                 transport = BridgeTransport.WEB_MESSAGE_LISTENER,
-                payloadType = payloadType,
+                payloadType = MessagePayloadType.STRING,
                 sourceOrigin = sourceOrigin.toString(),
                 isMainFrame = isMainFrame,
-                requestData = requestData,
+                requestData = parsedEnvelope.requestData,
             )
             Dari.repository.addEntry(entry)
-            Dari.postMessageNotification(handlerName, MessageDirection.WEB_TO_APP)
+            Dari.postMessageNotification(parsedEnvelope.handlerName, MessageDirection.WEB_TO_APP)
 
             val reply = RealDariWebMessageReply(
-                requestId = requestId,
+                requestId = parsedEnvelope.requestId,
                 channelName = config.channelName,
                 proxy = replyProxy,
             )
 
             handler?.onMessage(
                 DariWebMessage(
-                    requestId = requestId,
-                    handlerName = handlerName,
+                    requestId = parsedEnvelope.requestId,
+                    handlerName = parsedEnvelope.handlerName,
                     channelName = config.channelName,
                     sourceOrigin = sourceOrigin.toString(),
                     isMainFrame = isMainFrame,
-                    payloadType = payloadType,
-                    text = requestData,
-                    arrayBuffer = arrayBufferPayload,
+                    payloadType = MessagePayloadType.STRING,
+                    text = parsedEnvelope.requestData,
+                    arrayBuffer = null,
                     reply = reply,
                 ),
             )
@@ -114,33 +87,30 @@ internal object DariWebMessageBridge {
         return true
     }
 
-    private fun createRequestId(): String {
-        return "wml_${System.currentTimeMillis()}_${webMessageCounter.incrementAndGet()}"
-    }
-
-    private fun parseEnvelope(message: String?, fallbackHandlerName: String): ParsedEnvelope? {
-        if (message.isNullOrBlank()) return null
-        return try {
-            val root = json.parseToJsonElement(message)
-            if (root !is JsonObject) return null
-
-            val handlerName = root["handlerName"]?.jsonPrimitive?.contentOrNull ?: fallbackHandlerName
-            val requestId = root["requestId"]?.jsonPrimitive?.contentOrNull ?: createRequestId()
-            val dataElement = root["data"]
-            val requestData = if (dataElement == null || dataElement is JsonNull) null else dataElement.toString()
-
-            if (!root.containsKey("handlerName") || !root.containsKey("requestId")) {
-                return null
-            }
-            ParsedEnvelope(
-                handlerName = handlerName,
-                requestId = requestId,
-                requestData = requestData,
-            )
-        } catch (_: Exception) {
-            null
+    private fun parseEnvelope(message: String?): ParsedEnvelope {
+        val envelope = try {
+            json.decodeFromString<RequestEnvelope>(message ?: throw IllegalArgumentException())
+        } catch (e: Exception) {
+            throw IllegalArgumentException("WebMessage request payload must match {handlerName, requestId, data}", e)
         }
+
+        return ParsedEnvelope(
+            handlerName = envelope.handlerName,
+            requestId = envelope.requestId,
+            requestData = envelope.data.toJsonStringOrNull(),
+        )
     }
+
+    private fun JsonElement?.toJsonStringOrNull(): String? {
+        return if (this == null || this is JsonNull) null else this.toString()
+    }
+
+    @Serializable
+    private data class RequestEnvelope(
+        val handlerName: String,
+        val requestId: String,
+        val data: JsonElement? = null,
+    )
 
     private data class ParsedEnvelope(
         val handlerName: String,
@@ -149,25 +119,28 @@ internal object DariWebMessageBridge {
     )
 
     private fun parseResponseEnvelope(message: String?): ParsedResponseEnvelope? {
-        if (message.isNullOrBlank()) return null
-        return try {
-            val root = json.parseToJsonElement(message)
-            if (root !is JsonObject) return null
-            if (!root.containsKey("requestId") || !root.containsKey("success")) return null
-
-            val success = root["success"]?.jsonPrimitive?.booleanOrNull ?: return null
-            val dataElement = root["data"]
-            val data = if (dataElement == null || dataElement is JsonNull) null else dataElement.toString()
-
-            ParsedResponseEnvelope(success = success, data = data)
+        val envelope = try {
+            json.decodeFromString<ResponseEnvelope>(message ?: return null)
         } catch (_: Exception) {
-            null
+            return null
         }
+
+        return ParsedResponseEnvelope(
+            success = envelope.success,
+            data = envelope.data.toJsonStringOrNull(),
+        )
     }
 
     private data class ParsedResponseEnvelope(
         val success: Boolean,
         val data: String?,
+    )
+
+    @Serializable
+    private data class ResponseEnvelope(
+        val requestId: String,
+        val success: Boolean,
+        val data: JsonElement? = null,
     )
 
     private class RealDariWebMessageReply(
