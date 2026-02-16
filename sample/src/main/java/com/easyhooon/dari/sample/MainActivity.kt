@@ -238,7 +238,7 @@ class MainActivity : ComponentActivity() {
                     put("ok", true)
                     put("type", "pong")
                 }
-                replyWebMessage(message.requestId, true, payload, message)
+                replyWebMessage(message, true, payload)
             }
 
             "echo" -> {
@@ -246,7 +246,7 @@ class MainActivity : ComponentActivity() {
                     put("ok", true)
                     put("echo", data?.opt("value"))
                 }
-                replyWebMessage(message.requestId, true, payload, message)
+                replyWebMessage(message, true, payload)
             }
 
             else -> {
@@ -255,19 +255,18 @@ class MainActivity : ComponentActivity() {
                     put("error", "unknown_handler")
                     put("handlerName", message.handlerName)
                 }
-                replyWebMessage(message.requestId, false, payload, message)
+                replyWebMessage(message, false, payload)
             }
         }
     }
 
     private fun replyWebMessage(
-        requestId: String,
+        message: DariWebMessage,
         isSuccess: Boolean,
         data: JSONObject,
-        message: DariWebMessage,
     ) {
         val response = JSONObject().apply {
-            put("requestId", requestId)
+            put("requestId", message.requestId)
             put("success", isSuccess)
             put("data", data)
         }

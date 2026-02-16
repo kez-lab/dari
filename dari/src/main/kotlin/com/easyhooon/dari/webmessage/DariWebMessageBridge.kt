@@ -1,6 +1,5 @@
 package com.easyhooon.dari.webmessage
 
-import android.util.Base64
 import android.webkit.WebView
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
@@ -167,24 +166,8 @@ internal object DariWebMessageBridge {
         }
 
         override fun postArrayBuffer(bytes: ByteArray): Boolean {
-            if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_ARRAY_BUFFER)) {
-                markReplyError("WEB_MESSAGE_ARRAY_BUFFER unsupported")
-                return false
-            }
-
-            proxy.postMessage(bytes)
-
-            val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            Dari.repository.updateEntry(requestId) { entry ->
-                entry.copy(
-                    responseData = "[ArrayBuffer ${bytes.size} bytes, base64=$encoded]",
-                    status = MessageStatus.SUCCESS,
-                    responseTimestamp = System.currentTimeMillis(),
-                    payloadType = MessagePayloadType.ARRAY_BUFFER,
-                )
-            }
-            Dari.postMessageNotification(channelName, MessageDirection.APP_TO_WEB)
-            return true
+            markReplyError("ARRAY_BUFFER is not supported")
+            return false
         }
 
         private fun markReplyError(reason: String) {
