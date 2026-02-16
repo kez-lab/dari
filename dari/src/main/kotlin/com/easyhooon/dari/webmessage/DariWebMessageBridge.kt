@@ -11,14 +11,9 @@ import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessagePayloadType
 import com.easyhooon.dari.MessageStatus
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
+import org.json.JSONObject
 
 internal object DariWebMessageBridge {
-
-    private val json = Json { ignoreUnknownKeys = true }
 
     fun isSupported(): Boolean {
         return WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
@@ -85,29 +80,17 @@ internal object DariWebMessageBridge {
     }
 
     private fun parseEnvelope(message: String?): ParsedEnvelope {
-        val envelope = try {
-            json.decodeFromString<RequestEnvelope>(message ?: throw IllegalArgumentException())
+        return try {
+            val json = JSONObject(message ?: throw IllegalArgumentException())
+            ParsedEnvelope(
+                handlerName = json.getString("handlerName"),
+                requestId = json.getString("requestId"),
+                requestData = json.opt("data")?.let { if (it == JSONObject.NULL) null else it.toString() },
+            )
         } catch (e: Exception) {
             throw IllegalArgumentException("WebMessage request payload must match {handlerName, requestId, data}", e)
         }
-
-        return ParsedEnvelope(
-            handlerName = envelope.handlerName,
-            requestId = envelope.requestId,
-            requestData = envelope.data.toJsonStringOrNull(),
-        )
     }
-
-    private fun JsonElement?.toJsonStringOrNull(): String? {
-        return if (this == null || this is JsonNull) null else this.toString()
-    }
-
-    @Serializable
-    private data class RequestEnvelope(
-        val handlerName: String,
-        val requestId: String,
-        val data: JsonElement? = null,
-    )
 
     private data class ParsedEnvelope(
         val handlerName: String,
@@ -116,28 +99,22 @@ internal object DariWebMessageBridge {
     )
 
     private fun parseResponseEnvelope(message: String?): ParsedResponseEnvelope? {
-        val envelope = try {
-            json.decodeFromString<ResponseEnvelope>(message ?: return null)
+        val json = try {
+            JSONObject(message ?: return null)
         } catch (_: Exception) {
             return null
         }
+        if (!json.has("requestId") || !json.has("success")) return null
 
         return ParsedResponseEnvelope(
-            success = envelope.success,
-            data = envelope.data.toJsonStringOrNull(),
+            success = json.getBoolean("success"),
+            data = json.opt("data")?.let { if (it == JSONObject.NULL) null else it.toString() },
         )
     }
 
     private data class ParsedResponseEnvelope(
         val success: Boolean,
         val data: String?,
-    )
-
-    @Serializable
-    private data class ResponseEnvelope(
-        val requestId: String,
-        val success: Boolean,
-        val data: JsonElement? = null,
     )
 
     private class DefaultDariWebMessageReply(
