@@ -3,6 +3,7 @@ package com.easyhooon.dari
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.webkit.WebView
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -11,6 +12,9 @@ import com.easyhooon.dari.interceptor.DariInterceptor
 import com.easyhooon.dari.interceptor.DefaultDariInterceptor
 import com.easyhooon.dari.notification.DariNotification
 import com.easyhooon.dari.ui.DariActivity
+import com.easyhooon.dari.webmessage.DariWebMessageBridge
+import com.easyhooon.dari.webmessage.DariWebMessageConfig
+import com.easyhooon.dari.webmessage.DariWebMessageHandler
 
 /**
  * Singleton entry point for Dari.
@@ -25,7 +29,8 @@ object Dari {
     internal var config = DariConfig()
         private set
 
-    internal val repository = MessageRepository()
+    internal var repository = MessageRepository()
+        private set
 
     private var notification: DariNotification? = null
 
@@ -36,6 +41,7 @@ object Dari {
     fun init(context: Context, config: DariConfig = DariConfig()) {
         this.context = context.applicationContext
         this.config = config
+        repository = MessageRepository(maxEntries = config.maxEntries)
 
         if (config.showNotification) {
             notification = DariNotification(this.context)
@@ -75,6 +81,29 @@ object Dari {
     fun clear() {
         repository.clear()
         notification?.dismissAll()
+    }
+
+    /**
+     * Whether WebViewCompat WebMessageListener is supported by this WebView implementation.
+     */
+    fun isWebMessageListenerSupported(): Boolean = DariWebMessageBridge.isSupported()
+
+    /**
+     * Adds a WebMessageListener and logs all incoming messages into Dari.
+     */
+    fun addWebMessageListener(
+        webView: WebView,
+        config: DariWebMessageConfig = DariWebMessageConfig(),
+        onMessage: DariWebMessageHandler? = null,
+    ): Boolean {
+        return DariWebMessageBridge.addListener(webView, config, onMessage)
+    }
+
+    /**
+     * Removes a previously added WebMessageListener by js object name.
+     */
+    fun removeWebMessageListener(webView: WebView, jsObjectName: String): Boolean {
+        return DariWebMessageBridge.removeListener(webView, jsObjectName)
     }
 
     /** Registers a dynamic shortcut shown on launcher long-press */

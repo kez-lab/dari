@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.startup)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.webkit)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
