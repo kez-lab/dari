@@ -84,6 +84,45 @@ interceptor?.onAppToWebMessage(handlerName, requestId, data)
 interceptor?.onAppToWebResponse(requestId, isSuccess, responseData)
 ```
 
+### WebMessageListener Integration (WebViewCompat)
+
+If your bridge uses `WebViewCompat.addWebMessageListener`, Dari can capture those messages too:
+
+```kotlin
+val supported = Dari.isWebMessageListenerSupported()
+if (supported) {
+    Dari.addWebMessageListener(
+        webView = webView,
+        config = DariWebMessageConfig(
+            jsObjectName = "DariWml",
+            allowedOriginRules = setOf("https://your.domain"),
+            channelName = "wml",
+        ),
+    ) { message ->
+        // app logic
+        message.reply.postText("""{"ok":true}""")
+    }
+}
+```
+
+Recommended request envelope (to align with existing `DariInterceptor` semantics):
+
+```json
+{
+  "handlerName": "ping",
+  "requestId": "req_123",
+  "data": { "foo": "bar" }
+}
+```
+
+When this shape is used, Dari stores `handlerName/requestId/data` the same way as JavascriptInterface-based logs.
+
+When no longer needed:
+
+```kotlin
+Dari.removeWebMessageListener(webView, "DariWml")
+```
+
 ### Custom Configuration
 
 You can customize Dari by calling `init` with a config before auto-initialization occurs, or in your `Application.onCreate()`:
@@ -130,6 +169,9 @@ The `sample/` module contains a working WebView demo with realistic bridge scena
 | `createInterceptor()` | Create a `DariInterceptor` (returns `null` in noop) |
 | `showNotification()` | Show the notification (e.g., after permission grant) |
 | `clear()` | Clear all stored messages and dismiss notification |
+| `isWebMessageListenerSupported()` | Returns whether `WebMessageListener` is available |
+| `addWebMessageListener(webView, config, onMessage)` | Register and capture `WebMessageListener` traffic |
+| `removeWebMessageListener(webView, jsObjectName)` | Remove a registered `WebMessageListener` |
 
 ### DariInterceptor
 
