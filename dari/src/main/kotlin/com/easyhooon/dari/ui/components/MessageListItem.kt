@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.easyhooon.dari.BridgeTransport
 import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessageStatus
@@ -101,6 +102,16 @@ internal fun MessageListItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (entry.transport == BridgeTransport.WEB_MESSAGE_LISTENER) {
+                        "WebMessage"
+                    } else {
+                        "JS Interface"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
