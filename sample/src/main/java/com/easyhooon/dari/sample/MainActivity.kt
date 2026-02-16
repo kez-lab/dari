@@ -223,7 +223,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleWebMessage(message: DariWebMessage) {
-        val data = message.text?.let {
+        val data = message.requestData?.let {
             try {
                 JSONObject(it)
             } catch (_: Exception) {

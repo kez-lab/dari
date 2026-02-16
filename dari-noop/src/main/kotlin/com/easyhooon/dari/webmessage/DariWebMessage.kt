@@ -6,7 +6,7 @@ data class DariWebMessage(
     val jsObjectName: String,
     val sourceOrigin: String,
     val isMainFrame: Boolean,
-    val text: String?,
+    val requestData: String?,
     val reply: DariWebMessageReply,
 )
 

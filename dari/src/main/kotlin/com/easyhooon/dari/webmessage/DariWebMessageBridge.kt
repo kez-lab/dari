@@ -69,7 +69,7 @@ internal object DariWebMessageBridge {
                     jsObjectName = config.jsObjectName,
                     sourceOrigin = sourceOrigin.toString(),
                     isMainFrame = isMainFrame,
-                    text = parsedEnvelope.requestData,
+                    requestData = parsedEnvelope.requestData,
                     reply = reply,
                 ),
             )
