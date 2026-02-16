@@ -96,7 +96,6 @@ if (supported) {
         config = DariWebMessageConfig(
             jsObjectName = "DariWml",
             allowedOriginRules = setOf("https://your.domain"),
-            channelName = "wml",
         ),
     ) { message ->
         // app logic

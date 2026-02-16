@@ -72,7 +72,6 @@ class MainActivity : ComponentActivity() {
                 config = DariWebMessageConfig(
                     jsObjectName = WML_OBJECT_NAME,
                     allowedOriginRules = setOf("*"),
-                    channelName = "sample-wml",
                 ),
                 onMessage = { message -> handleWebMessage(message) },
             )

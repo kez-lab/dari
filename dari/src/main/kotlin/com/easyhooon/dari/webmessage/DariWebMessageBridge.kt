@@ -56,9 +56,9 @@ internal object DariWebMessageBridge {
             Dari.repository.addEntry(entry)
             Dari.postMessageNotification(parsedEnvelope.handlerName, MessageDirection.WEB_TO_APP)
 
-            val reply = RealDariWebMessageReply(
+            val reply = DefaultDariWebMessageReply(
                 requestId = parsedEnvelope.requestId,
-                channelName = config.channelName,
+                handlerName = parsedEnvelope.handlerName,
                 proxy = replyProxy,
             )
 
@@ -66,12 +66,10 @@ internal object DariWebMessageBridge {
                 DariWebMessage(
                     requestId = parsedEnvelope.requestId,
                     handlerName = parsedEnvelope.handlerName,
-                    channelName = config.channelName,
+                    jsObjectName = config.jsObjectName,
                     sourceOrigin = sourceOrigin.toString(),
                     isMainFrame = isMainFrame,
-                    payloadType = MessagePayloadType.STRING,
                     text = parsedEnvelope.requestData,
-                    arrayBuffer = null,
                     reply = reply,
                 ),
             )
@@ -142,9 +140,9 @@ internal object DariWebMessageBridge {
         val data: JsonElement? = null,
     )
 
-    private class RealDariWebMessageReply(
+    private class DefaultDariWebMessageReply(
         private val requestId: String,
-        private val channelName: String,
+        private val handlerName: String,
         private val proxy: JavaScriptReplyProxy,
     ) : DariWebMessageReply {
 
@@ -162,7 +160,7 @@ internal object DariWebMessageBridge {
                     responseTimestamp = System.currentTimeMillis(),
                 )
             }
-            Dari.postMessageNotification(channelName, MessageDirection.APP_TO_WEB)
+            Dari.postMessageNotification(handlerName, MessageDirection.APP_TO_WEB)
         }
 
         override fun postArrayBuffer(bytes: ByteArray): Boolean {
