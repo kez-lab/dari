@@ -74,10 +74,11 @@ class DefaultDariInterceptor : DariInterceptor {
                     handlerName: String,
                     parsedResponse: ParsedResponseEnvelope?,
                 ) {
+                    val isSuccess = parsedResponse?.success ?: false
                     recordResponse(
                         requestId = requestId,
-                        responseData = parsedResponse?.data.orEmpty(),
-                        isSuccess = parsedResponse?.success != false,
+                        responseData = parsedResponse?.data ?: "Invalid response envelope",
+                        isSuccess = isSuccess,
                     )
                     Dari.postMessageNotification(handlerName, MessageDirection.APP_TO_WEB)
                 }
