@@ -50,10 +50,6 @@ class DefaultDariInterceptor : DariInterceptor {
         recordResponse(requestId, responseData, isSuccess)
     }
 
-    override fun isWebMessageListenerSupported(): Boolean {
-        return DariWebMessageBridge.isSupported()
-    }
-
     override fun addWebMessageListener(
         webView: WebView,
         config: DariWebMessageConfig,

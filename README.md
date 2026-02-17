@@ -90,20 +90,21 @@ If your bridge uses `WebViewCompat.addWebMessageListener`, Dari can capture thos
 
 ```kotlin
 val interceptor = Dari.createInterceptor()
-val supported = interceptor?.isWebMessageListenerSupported() == true
-if (supported) {
-    interceptor?.addWebMessageListener(
-        webView = webView,
-        config = DariWebMessageConfig(
-            jsObjectName = "DariWml",
-            allowedOriginRules = setOf("https://your.domain"),
-        ),
-    ) { message ->
-        // app logic
-        message.reply.postText("""{"ok":true}""")
-    }
+interceptor?.addWebMessageListener(
+    webView = webView,
+    config = DariWebMessageConfig(
+        jsObjectName = "DariWml",
+        allowedOriginRules = setOf("https://your.domain"),
+    ),
+) { message ->
+    // app logic
+    message.replySuccess(JSONObject().apply {
+        put("ok", true)
+    })
 }
 ```
+
+(`replySuccess` extension is in `com.easyhooon.dari.webmessage`, and this example uses `org.json.JSONObject`.)
 
 Recommended request envelope (to align with existing `DariInterceptor` semantics):
 
@@ -116,6 +117,16 @@ Recommended request envelope (to align with existing `DariInterceptor` semantics
 ```
 
 When this shape is used, Dari stores `handlerName/requestId/data` the same way as JavascriptInterface-based logs.
+
+Recommended response envelope:
+
+```json
+{
+  "requestId": "req_123",
+  "success": true,
+  "data": { "ok": true }
+}
+```
 
 When no longer needed:
 
@@ -178,7 +189,6 @@ The `sample/` module contains a working WebView demo with realistic bridge scena
 | `onWebToAppResponse(handlerName, requestId, responseData, isSuccess)` | Log the response to a Web-to-App request |
 | `onAppToWebMessage(handlerName, requestId, data)` | Log an App-to-Web message |
 | `onAppToWebResponse(requestId, isSuccess, responseData)` | Log the response to an App-to-Web message |
-| `isWebMessageListenerSupported()` | Returns whether `WebMessageListener` is available |
 | `addWebMessageListener(webView, config, onMessage)` | Register and capture `WebMessageListener` traffic |
 | `removeWebMessageListener(webView, jsObjectName)` | Remove a registered `WebMessageListener` |
 

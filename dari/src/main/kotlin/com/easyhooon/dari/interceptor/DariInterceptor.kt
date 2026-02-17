@@ -21,9 +21,6 @@ interface DariInterceptor {
     /** Called when a web response is received for an App -> Web request */
     fun onAppToWebResponse(requestId: String, isSuccess: Boolean, responseData: String?)
 
-    /** Whether WebViewCompat WebMessageListener is supported. */
-    fun isWebMessageListenerSupported(): Boolean = false
-
     /** Adds a WebMessageListener and logs incoming messages. */
     fun addWebMessageListener(
         webView: WebView,

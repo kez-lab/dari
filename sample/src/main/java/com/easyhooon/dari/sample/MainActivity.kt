@@ -26,6 +26,8 @@ import com.easyhooon.dari.Dari
 import com.easyhooon.dari.interceptor.DariInterceptor
 import com.easyhooon.dari.webmessage.DariWebMessage
 import com.easyhooon.dari.webmessage.DariWebMessageConfig
+import com.easyhooon.dari.webmessage.replyError
+import com.easyhooon.dari.webmessage.replySuccess
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
@@ -237,7 +239,7 @@ class MainActivity : ComponentActivity() {
                     put("ok", true)
                     put("type", "pong")
                 }
-                replyWebMessage(message, true, payload)
+                message.replySuccess(payload)
             }
 
             "echo" -> {
@@ -245,7 +247,7 @@ class MainActivity : ComponentActivity() {
                     put("ok", true)
                     put("echo", data?.opt("value"))
                 }
-                replyWebMessage(message, true, payload)
+                message.replySuccess(payload)
             }
 
             else -> {
@@ -254,21 +256,8 @@ class MainActivity : ComponentActivity() {
                     put("error", "unknown_handler")
                     put("handlerName", message.handlerName)
                 }
-                replyWebMessage(message, false, payload)
+                message.replyError(payload)
             }
         }
-    }
-
-    private fun replyWebMessage(
-        message: DariWebMessage,
-        isSuccess: Boolean,
-        data: JSONObject,
-    ) {
-        val response = JSONObject().apply {
-            put("requestId", message.requestId)
-            put("success", isSuccess)
-            put("data", data)
-        }
-        message.reply.postText(response.toString())
     }
 }
