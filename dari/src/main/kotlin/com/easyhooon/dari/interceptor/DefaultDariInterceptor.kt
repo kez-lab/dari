@@ -1,9 +1,13 @@
 package com.easyhooon.dari.interceptor
 
+import android.webkit.WebView
 import com.easyhooon.dari.Dari
 import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessageStatus
+import com.easyhooon.dari.webmessage.DariWebMessageBridge
+import com.easyhooon.dari.webmessage.DariWebMessageConfig
+import com.easyhooon.dari.webmessage.DariWebMessageHandler
 
 /**
  * Default implementation of [DariInterceptor].
@@ -56,5 +60,21 @@ class DefaultDariInterceptor : DariInterceptor {
                 responseTimestamp = System.currentTimeMillis(),
             )
         }
+    }
+
+    override fun isWebMessageListenerSupported(): Boolean {
+        return DariWebMessageBridge.isSupported()
+    }
+
+    override fun addWebMessageListener(
+        webView: WebView,
+        config: DariWebMessageConfig,
+        onMessage: DariWebMessageHandler?,
+    ): Boolean {
+        return DariWebMessageBridge.addListener(webView, config, onMessage)
+    }
+
+    override fun removeWebMessageListener(webView: WebView, jsObjectName: String): Boolean {
+        return DariWebMessageBridge.removeListener(webView, jsObjectName)
     }
 }

@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
             loadUrl("file:///android_asset/sample.html")
         }
         webView?.let {
-            Dari.addWebMessageListener(
+            interceptor?.addWebMessageListener(
                 webView = it,
                 config = DariWebMessageConfig(
                     jsObjectName = WML_OBJECT_NAME,
@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        webView?.let { Dari.removeWebMessageListener(it, WML_OBJECT_NAME) }
+        webView?.let { interceptor?.removeWebMessageListener(it, WML_OBJECT_NAME) }
         super.onDestroy()
     }
 
