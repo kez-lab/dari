@@ -45,6 +45,7 @@ dependencies {
 
     // Serialization (JSON parsing)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.org.json)
 
     // Test
     testImplementation(libs.junit)

@@ -1,10 +1,9 @@
 package com.easyhooon.dari.interceptor
 
 import android.webkit.WebView
-import com.easyhooon.dari.Dari
 import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
-import com.easyhooon.dari.MessageStatus
+import com.easyhooon.dari.data.MessageRecorder
 import com.easyhooon.dari.webmessage.DariWebMessageBridge
 import com.easyhooon.dari.webmessage.DariWebMessageConfig
 import com.easyhooon.dari.webmessage.DariWebMessageHandler
@@ -22,8 +21,7 @@ class DefaultDariInterceptor : DariInterceptor {
             direction = MessageDirection.WEB_TO_APP,
             requestData = requestData,
         )
-        Dari.repository.addEntry(entry)
-        Dari.postMessageNotification(handlerName, MessageDirection.WEB_TO_APP)
+        MessageRecorder.recordRequest(entry)
     }
 
     override fun onWebToAppResponse(
@@ -32,13 +30,7 @@ class DefaultDariInterceptor : DariInterceptor {
         responseData: String?,
         isSuccess: Boolean,
     ) {
-        Dari.repository.updateEntry(requestId) { entry ->
-            entry.copy(
-                responseData = responseData,
-                status = if (isSuccess) MessageStatus.SUCCESS else MessageStatus.ERROR,
-                responseTimestamp = System.currentTimeMillis(),
-            )
-        }
+        MessageRecorder.recordResponse(requestId, responseData, isSuccess)
     }
 
     override fun onAppToWebMessage(handlerName: String, requestId: String, data: String?) {
@@ -48,18 +40,11 @@ class DefaultDariInterceptor : DariInterceptor {
             direction = MessageDirection.APP_TO_WEB,
             requestData = data,
         )
-        Dari.repository.addEntry(entry)
-        Dari.postMessageNotification(handlerName, MessageDirection.APP_TO_WEB)
+        MessageRecorder.recordRequest(entry)
     }
 
     override fun onAppToWebResponse(requestId: String, isSuccess: Boolean, responseData: String?) {
-        Dari.repository.updateEntry(requestId) { entry ->
-            entry.copy(
-                responseData = responseData,
-                status = if (isSuccess) MessageStatus.SUCCESS else MessageStatus.ERROR,
-                responseTimestamp = System.currentTimeMillis(),
-            )
-        }
+        MessageRecorder.recordResponse(requestId, responseData, isSuccess)
     }
 
     override fun isWebMessageListenerSupported(): Boolean {

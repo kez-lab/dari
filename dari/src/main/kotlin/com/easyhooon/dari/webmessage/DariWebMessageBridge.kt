@@ -11,7 +11,7 @@ import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessagePayloadType
 import com.easyhooon.dari.MessageStatus
-import org.json.JSONObject
+import com.easyhooon.dari.data.MessageRecorder
 
 internal object DariWebMessageBridge {
 
@@ -36,7 +36,28 @@ internal object DariWebMessageBridge {
                 return@addWebMessageListener
             }
 
-            val parsedEnvelope = parseEnvelope(message.data)
+            val parsedEnvelope = try {
+                WebMessageEnvelopeParser.parseRequestOrThrow(message.data)
+            } catch (e: IllegalArgumentException) {
+                if (Dari.config.strictWebMessageParsing) {
+                    throw e
+                }
+                val entry = MessageEntry(
+                    requestId = "invalid_webmessage_${System.currentTimeMillis()}",
+                    handlerName = "__invalid_web_message__",
+                    direction = MessageDirection.WEB_TO_APP,
+                    transport = BridgeTransport.WEB_MESSAGE_LISTENER,
+                    payloadType = MessagePayloadType.STRING,
+                    sourceOrigin = sourceOrigin.toString(),
+                    isMainFrame = isMainFrame,
+                    requestData = message.data,
+                    responseData = e.message,
+                    status = MessageStatus.ERROR,
+                    responseTimestamp = System.currentTimeMillis(),
+                )
+                MessageRecorder.recordRequest(entry)
+                return@addWebMessageListener
+            }
 
             val entry = MessageEntry(
                 requestId = parsedEnvelope.requestId,
@@ -48,8 +69,7 @@ internal object DariWebMessageBridge {
                 isMainFrame = isMainFrame,
                 requestData = parsedEnvelope.requestData,
             )
-            Dari.repository.addEntry(entry)
-            Dari.postMessageNotification(parsedEnvelope.handlerName, MessageDirection.WEB_TO_APP)
+            MessageRecorder.recordRequest(entry)
 
             val reply = DefaultDariWebMessageReply(
                 requestId = parsedEnvelope.requestId,
@@ -79,44 +99,6 @@ internal object DariWebMessageBridge {
         return true
     }
 
-    private fun parseEnvelope(message: String?): ParsedEnvelope {
-        return try {
-            val json = JSONObject(message ?: throw IllegalArgumentException())
-            ParsedEnvelope(
-                handlerName = json.getString("handlerName"),
-                requestId = json.getString("requestId"),
-                requestData = json.opt("data")?.let { if (it == JSONObject.NULL) null else it.toString() },
-            )
-        } catch (e: Exception) {
-            throw IllegalArgumentException("WebMessage request payload must match {handlerName, requestId, data}", e)
-        }
-    }
-
-    private data class ParsedEnvelope(
-        val handlerName: String,
-        val requestId: String,
-        val requestData: String?,
-    )
-
-    private fun parseResponseEnvelope(message: String?): ParsedResponseEnvelope? {
-        val json = try {
-            JSONObject(message ?: return null)
-        } catch (_: Exception) {
-            return null
-        }
-        if (!json.has("requestId") || !json.has("success")) return null
-
-        return ParsedResponseEnvelope(
-            success = json.getBoolean("success"),
-            data = json.opt("data")?.let { if (it == JSONObject.NULL) null else it.toString() },
-        )
-    }
-
-    private data class ParsedResponseEnvelope(
-        val success: Boolean,
-        val data: String?,
-    )
-
     private class DefaultDariWebMessageReply(
         private val requestId: String,
         private val handlerName: String,
@@ -125,19 +107,13 @@ internal object DariWebMessageBridge {
 
         override fun postText(text: String) {
             proxy.postMessage(text)
-            val parsedResponse = parseResponseEnvelope(text)
-            Dari.repository.updateEntry(requestId) { entry ->
-                entry.copy(
-                    responseData = parsedResponse?.data ?: text,
-                    status = if (parsedResponse?.success == false) {
-                        MessageStatus.ERROR
-                    } else {
-                        MessageStatus.SUCCESS
-                    },
-                    responseTimestamp = System.currentTimeMillis(),
-                )
-            }
-            Dari.postMessageNotification(handlerName, MessageDirection.APP_TO_WEB)
+            val parsedResponse = WebMessageEnvelopeParser.parseResponseOrNull(text)
+            MessageRecorder.recordResponse(
+                requestId = requestId,
+                responseData = parsedResponse?.data ?: text,
+                isSuccess = parsedResponse?.success != false,
+            )
+            MessageRecorder.postNotification(handlerName, MessageDirection.APP_TO_WEB)
         }
 
         override fun postArrayBuffer(bytes: ByteArray): Boolean {
@@ -146,13 +122,7 @@ internal object DariWebMessageBridge {
         }
 
         private fun markReplyError(reason: String) {
-            Dari.repository.updateEntry(requestId) { entry ->
-                entry.copy(
-                    responseData = reason,
-                    status = MessageStatus.ERROR,
-                    responseTimestamp = System.currentTimeMillis(),
-                )
-            }
+            MessageRecorder.recordResponse(requestId, reason, false)
         }
     }
 }

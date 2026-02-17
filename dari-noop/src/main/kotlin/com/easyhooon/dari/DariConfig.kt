@@ -8,4 +8,5 @@ data class DariConfig(
     val maxEntries: Int = 500,
     /** Whether to show the status notification */
     val showNotification: Boolean = true,
+    val strictWebMessageParsing: Boolean = true,
 )
