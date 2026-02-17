@@ -8,4 +8,9 @@ data class DariConfig(
     val maxEntries: Int = 500,
     /** Whether to show the status notification */
     val showNotification: Boolean = true,
+    /**
+     * If true, malformed WebMessage request envelopes throw immediately.
+     * If false, malformed payloads are recorded as error entries instead.
+     */
+    val strictWebMessageParsing: Boolean = true,
 )

@@ -57,6 +57,19 @@ class MessageRepositoryTest {
     }
 
     @Test
+    fun `updateEntry updates most recent matching requestId only`() {
+        val first = createEntry("dup")
+        val second = createEntry("dup")
+        repository.addEntry(first)
+        repository.addEntry(second)
+
+        repository.updateEntry("dup") { it.copy(status = MessageStatus.SUCCESS) }
+
+        assertEquals(MessageStatus.IN_PROGRESS, repository.entries.value[0].status)
+        assertEquals(MessageStatus.SUCCESS, repository.entries.value[1].status)
+    }
+
+    @Test
     fun `updateEntry does not affect non-matching entries`() {
         repository.addEntry(createEntry("1"))
         repository.addEntry(createEntry("2"))

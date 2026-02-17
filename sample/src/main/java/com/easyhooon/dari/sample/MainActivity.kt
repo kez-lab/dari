@@ -24,9 +24,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.easyhooon.dari.Dari
 import com.easyhooon.dari.interceptor.DariInterceptor
+import com.easyhooon.dari.webmessage.DariWebMessage
+import com.easyhooon.dari.webmessage.DariWebMessageConfig
+import com.easyhooon.dari.webmessage.replyError
+import com.easyhooon.dari.webmessage.replySuccess
 import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        private const val WML_OBJECT_NAME = "DariWml"
+    }
 
     private val interceptor: DariInterceptor? = Dari.createInterceptor()
     private var webView: WebView? = null
@@ -60,8 +68,23 @@ class MainActivity : ComponentActivity() {
             addJavascriptInterface(BridgeInterface(), "Android")
             loadUrl("file:///android_asset/sample.html")
         }
+        webView?.let {
+            interceptor?.addWebMessageListener(
+                webView = it,
+                config = DariWebMessageConfig(
+                    jsObjectName = WML_OBJECT_NAME,
+                    allowedOriginRules = setOf("*"),
+                ),
+                onMessage = { message -> handleWebMessage(message) },
+            )
+        }
 
         setContentView(webView)
+    }
+
+    override fun onDestroy() {
+        webView?.let { interceptor?.removeWebMessageListener(it, WML_OBJECT_NAME) }
+        super.onDestroy()
     }
 
     private fun callJs(requestId: String, success: Boolean, data: String) {
@@ -199,5 +222,42 @@ class MainActivity : ComponentActivity() {
     private fun handleRequestCameraPermission(requestId: String) {
         pendingPermissionRequestId = requestId
         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    private fun handleWebMessage(message: DariWebMessage) {
+        val data = message.requestData?.let {
+            try {
+                JSONObject(it)
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        when (message.handlerName) {
+            "ping" -> {
+                val payload = JSONObject().apply {
+                    put("ok", true)
+                    put("type", "pong")
+                }
+                message.replySuccess(payload)
+            }
+
+            "echo" -> {
+                val payload = JSONObject().apply {
+                    put("ok", true)
+                    put("echo", data?.opt("value"))
+                }
+                message.replySuccess(payload)
+            }
+
+            else -> {
+                val payload = JSONObject().apply {
+                    put("ok", false)
+                    put("error", "unknown_handler")
+                    put("handlerName", message.handlerName)
+                }
+                message.replyError(payload)
+            }
+        }
     }
 }

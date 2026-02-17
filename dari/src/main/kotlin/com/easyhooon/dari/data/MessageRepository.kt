@@ -28,8 +28,11 @@ class MessageRepository(private val maxEntries: Int = 500) {
 
     fun updateEntry(requestId: String, transform: (MessageEntry) -> MessageEntry) {
         _entries.update { current ->
-            current.map { entry ->
-                if (entry.requestId == requestId) transform(entry) else entry
+            val index = current.indexOfLast { it.requestId == requestId }
+            if (index < 0) return@update current
+
+            current.toMutableList().apply {
+                this[index] = transform(this[index])
             }
         }
     }

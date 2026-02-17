@@ -244,8 +244,12 @@ private fun OverviewTab(entry: MessageEntry) {
 
         OverviewRow("Handler", entry.handlerName)
         OverviewRow("Direction", direction)
+        OverviewRow("Transport", entry.transport.name)
         OverviewRow("Status", entry.status.name)
         OverviewRow("Request ID", entry.requestId)
+        OverviewRow("Payload type", entry.payloadType.name)
+        entry.sourceOrigin?.let { OverviewRow("Source origin", it) }
+        entry.isMainFrame?.let { OverviewRow("Main frame", it.toString()) }
 
         Spacer(modifier = Modifier.height(8.dp))
 

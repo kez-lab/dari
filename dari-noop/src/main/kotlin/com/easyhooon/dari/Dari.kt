@@ -12,5 +12,7 @@ object Dari {
 
     fun createInterceptor(): DariInterceptor? = null
 
+    fun showNotification() = Unit
+
     fun clear() = Unit
 }

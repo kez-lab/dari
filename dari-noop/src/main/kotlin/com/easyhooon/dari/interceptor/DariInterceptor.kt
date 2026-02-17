@@ -1,5 +1,9 @@
 package com.easyhooon.dari.interceptor
 
+import android.webkit.WebView
+import com.easyhooon.dari.webmessage.DariWebMessageConfig
+import com.easyhooon.dari.webmessage.DariWebMessageHandler
+
 /**
  * Interface for intercepting WebView bridge communication.
  * Injected into WebViewBridge to capture all bridge messages.
@@ -16,4 +20,12 @@ interface DariInterceptor {
 
     /** Called when a web response is received for an App -> Web request */
     fun onAppToWebResponse(requestId: String, isSuccess: Boolean, responseData: String?)
+
+    fun addWebMessageListener(
+        webView: WebView,
+        config: DariWebMessageConfig = DariWebMessageConfig(),
+        onMessage: DariWebMessageHandler? = null,
+    ): Boolean = false
+
+    fun removeWebMessageListener(webView: WebView, jsObjectName: String): Boolean = false
 }

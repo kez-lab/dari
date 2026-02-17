@@ -25,7 +25,8 @@ object Dari {
     internal var config = DariConfig()
         private set
 
-    internal val repository = MessageRepository()
+    internal var repository = MessageRepository()
+        private set
 
     private var notification: DariNotification? = null
 
@@ -36,6 +37,7 @@ object Dari {
     fun init(context: Context, config: DariConfig = DariConfig()) {
         this.context = context.applicationContext
         this.config = config
+        repository = MessageRepository(maxEntries = config.maxEntries)
 
         if (config.showNotification) {
             notification = DariNotification(this.context)

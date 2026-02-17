@@ -92,6 +92,16 @@
         <span>Trigger native permission dialog</span>
     </button>
 
+    <div class="section">WebMessageListener</div>
+    <button class="btn btn-blue" onclick="sendWmlPing()">
+        Send WebMessage Ping
+        <span>window.DariWml.postMessage() with native reply</span>
+    </button>
+    <button class="btn btn-indigo" onclick="sendWmlEcho()">
+        Send WebMessage Echo
+        <span>Send structured data payload and receive echoed value</span>
+    </button>
+
     <div id="log"></div>
 
     <script>
@@ -156,6 +166,52 @@
             var data = JSON.stringify({ permission: "camera" });
             log('→ requestCameraPermission', 'req');
             Android.onBridgeRequest('requestCameraPermission', id, data);
+        }
+
+        function sendWmlPing() {
+            if (!window.DariWml || typeof window.DariWml.postMessage !== 'function') {
+                log('✗ DariWml is not available', 'err');
+                return;
+            }
+            var payload = JSON.stringify(makeBridgeRequest("ping", { at: Date.now() }));
+            log('→ WebMessage ping', 'req');
+            window.DariWml.postMessage(payload);
+        }
+
+        function sendWmlEcho() {
+            if (!window.DariWml || typeof window.DariWml.postMessage !== 'function') {
+                log('✗ DariWml is not available', 'err');
+                return;
+            }
+            var payload = JSON.stringify(makeBridgeRequest("echo", {
+                value: "Hello from WebMessageListener",
+                source: "sample.html",
+                sentAt: Date.now()
+            }));
+            log('→ WebMessage echo', 'req');
+            window.DariWml.postMessage(payload);
+        }
+
+        function makeBridgeRequest(handlerName, data) {
+            return {
+                handlerName: handlerName,
+                requestId: rid(),
+                data: data
+            };
+        }
+
+        if (window.DariWml) {
+            window.DariWml.onmessage = function(event) {
+                try {
+                    var response = JSON.parse(event.data);
+                    var dataText = response.data == null
+                        ? null
+                        : (typeof response.data === 'string' ? response.data : JSON.stringify(response.data));
+                    onBridgeResponse(response.requestId, !!response.success, dataText);
+                } catch (e) {
+                    log('✗ Invalid WebMessage response: ' + event.data, 'err');
+                }
+            }
         }
 
         // Called from native side with the response

@@ -84,6 +84,56 @@ interceptor?.onAppToWebMessage(handlerName, requestId, data)
 interceptor?.onAppToWebResponse(requestId, isSuccess, responseData)
 ```
 
+### WebMessageListener Integration (WebViewCompat)
+
+If your bridge uses `WebViewCompat.addWebMessageListener`, Dari can capture those messages too:
+
+```kotlin
+val interceptor = Dari.createInterceptor()
+interceptor?.addWebMessageListener(
+    webView = webView,
+    config = DariWebMessageConfig(
+        jsObjectName = "DariWml",
+        allowedOriginRules = setOf("https://your.domain"),
+    ),
+) { message ->
+    // app logic
+    message.replySuccess(JSONObject().apply {
+        put("ok", true)
+    })
+}
+```
+
+(`replySuccess` extension is in `com.easyhooon.dari.webmessage`, and this example uses `org.json.JSONObject`.)
+
+Recommended request envelope (to align with existing `DariInterceptor` semantics):
+
+```json
+{
+  "handlerName": "ping",
+  "requestId": "req_123",
+  "data": { "foo": "bar" }
+}
+```
+
+When this shape is used, Dari stores `handlerName/requestId/data` the same way as JavascriptInterface-based logs.
+
+Recommended response envelope:
+
+```json
+{
+  "requestId": "req_123",
+  "success": true,
+  "data": { "ok": true }
+}
+```
+
+When no longer needed:
+
+```kotlin
+interceptor?.removeWebMessageListener(webView, "DariWml")
+```
+
 ### Custom Configuration
 
 You can customize Dari by calling `init` with a config before auto-initialization occurs, or in your `Application.onCreate()`:
@@ -139,6 +189,8 @@ The `sample/` module contains a working WebView demo with realistic bridge scena
 | `onWebToAppResponse(handlerName, requestId, responseData, isSuccess)` | Log the response to a Web-to-App request |
 | `onAppToWebMessage(handlerName, requestId, data)` | Log an App-to-Web message |
 | `onAppToWebResponse(requestId, isSuccess, responseData)` | Log the response to an App-to-Web message |
+| `addWebMessageListener(webView, config, onMessage)` | Register and capture `WebMessageListener` traffic |
+| `removeWebMessageListener(webView, jsObjectName)` | Remove a registered `WebMessageListener` |
 
 ## License
 

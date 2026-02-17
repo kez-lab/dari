@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.startup)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.webkit)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
@@ -44,6 +45,7 @@ dependencies {
 
     // Serialization (JSON parsing)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.org.json)
 
     // Test
     testImplementation(libs.junit)
