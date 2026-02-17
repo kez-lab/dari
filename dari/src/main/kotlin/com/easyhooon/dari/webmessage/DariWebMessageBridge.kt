@@ -6,12 +6,10 @@ import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.easyhooon.dari.BridgeTransport
-import com.easyhooon.dari.Dari
 import com.easyhooon.dari.MessageDirection
 import com.easyhooon.dari.MessageEntry
 import com.easyhooon.dari.MessagePayloadType
 import com.easyhooon.dari.MessageStatus
-import com.easyhooon.dari.data.MessageRecorder
 
 internal object DariWebMessageBridge {
 
@@ -23,6 +21,8 @@ internal object DariWebMessageBridge {
         webView: WebView,
         config: DariWebMessageConfig,
         handler: DariWebMessageHandler?,
+        strictParsing: Boolean,
+        callbacks: WebMessageListenerCallbacks,
     ): Boolean {
         if (!isSupported()) return false
 
@@ -39,27 +39,28 @@ internal object DariWebMessageBridge {
             val parsedEnvelope = try {
                 WebMessageEnvelopeParser.parseRequestOrThrow(message.data)
             } catch (e: IllegalArgumentException) {
-                if (Dari.config.strictWebMessageParsing) {
+                if (strictParsing) {
                     throw e
                 }
-                val entry = MessageEntry(
-                    requestId = "invalid_webmessage_${System.currentTimeMillis()}",
-                    handlerName = "__invalid_web_message__",
-                    direction = MessageDirection.WEB_TO_APP,
-                    transport = BridgeTransport.WEB_MESSAGE_LISTENER,
-                    payloadType = MessagePayloadType.STRING,
-                    sourceOrigin = sourceOrigin.toString(),
-                    isMainFrame = isMainFrame,
-                    requestData = message.data,
-                    responseData = e.message,
-                    status = MessageStatus.ERROR,
-                    responseTimestamp = System.currentTimeMillis(),
+                callbacks.onRequest(
+                    MessageEntry(
+                        requestId = "invalid_webmessage_${System.currentTimeMillis()}",
+                        handlerName = "__invalid_web_message__",
+                        direction = MessageDirection.WEB_TO_APP,
+                        transport = BridgeTransport.WEB_MESSAGE_LISTENER,
+                        payloadType = MessagePayloadType.STRING,
+                        sourceOrigin = sourceOrigin.toString(),
+                        isMainFrame = isMainFrame,
+                        requestData = message.data,
+                        responseData = e.message,
+                        status = MessageStatus.ERROR,
+                        responseTimestamp = System.currentTimeMillis(),
+                    ),
                 )
-                MessageRecorder.recordRequest(entry)
                 return@addWebMessageListener
             }
 
-            val entry = MessageEntry(
+            val request = MessageEntry(
                 requestId = parsedEnvelope.requestId,
                 handlerName = parsedEnvelope.handlerName,
                 direction = MessageDirection.WEB_TO_APP,
@@ -69,22 +70,23 @@ internal object DariWebMessageBridge {
                 isMainFrame = isMainFrame,
                 requestData = parsedEnvelope.requestData,
             )
-            MessageRecorder.recordRequest(entry)
+            callbacks.onRequest(request)
 
             val reply = DefaultDariWebMessageReply(
-                requestId = parsedEnvelope.requestId,
-                handlerName = parsedEnvelope.handlerName,
+                requestId = request.requestId,
+                handlerName = request.handlerName,
                 proxy = replyProxy,
+                callbacks = callbacks,
             )
 
             handler?.onMessage(
                 DariWebMessage(
-                    requestId = parsedEnvelope.requestId,
-                    handlerName = parsedEnvelope.handlerName,
+                    requestId = request.requestId,
+                    handlerName = request.handlerName,
                     jsObjectName = config.jsObjectName,
-                    sourceOrigin = sourceOrigin.toString(),
-                    isMainFrame = isMainFrame,
-                    requestData = parsedEnvelope.requestData,
+                    sourceOrigin = request.sourceOrigin ?: "unknown",
+                    isMainFrame = request.isMainFrame ?: false,
+                    requestData = request.requestData,
                     reply = reply,
                 ),
             )
@@ -103,26 +105,28 @@ internal object DariWebMessageBridge {
         private val requestId: String,
         private val handlerName: String,
         private val proxy: JavaScriptReplyProxy,
+        private val callbacks: WebMessageListenerCallbacks,
     ) : DariWebMessageReply {
 
         override fun postText(text: String) {
             proxy.postMessage(text)
             val parsedResponse = WebMessageEnvelopeParser.parseResponseOrNull(text)
-            MessageRecorder.recordResponse(
-                requestId = requestId,
-                responseData = parsedResponse?.data ?: text,
-                isSuccess = parsedResponse?.success != false,
-            )
-            MessageRecorder.postNotification(handlerName, MessageDirection.APP_TO_WEB)
+            callbacks.onReplyText(requestId, handlerName, parsedResponse)
         }
 
         override fun postArrayBuffer(bytes: ByteArray): Boolean {
-            markReplyError("ARRAY_BUFFER is not supported")
-            return false
-        }
-
-        private fun markReplyError(reason: String) {
-            MessageRecorder.recordResponse(requestId, reason, false)
+            return callbacks.onReplyArrayBuffer(requestId, handlerName, bytes)
         }
     }
+}
+
+internal interface WebMessageListenerCallbacks {
+    fun onRequest(request: MessageEntry)
+    fun onReplyText(
+        requestId: String,
+        handlerName: String,
+        parsedResponse: ParsedResponseEnvelope?,
+    )
+
+    fun onReplyArrayBuffer(requestId: String, handlerName: String, bytes: ByteArray): Boolean
 }
